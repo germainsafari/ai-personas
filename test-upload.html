@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test File Upload</title>
+</head>
+<body>
+    <h1>Test File Upload</h1>
+    <form id="uploadForm">
+        <input type="file" id="fileInput" name="file" />
+        <button type="submit">Upload</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files.length) {
+                resultDiv.textContent = 'Please select a file';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                resultDiv.textContent = 'Uploading...';
+                const response = await fetch('/api/upload-handler', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    resultDiv.textContent = `Upload successful! File URL: ${data.url}`;
+                } else {
+                    resultDiv.textContent = `Upload failed: ${data.error}`;
+                }
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html> 
