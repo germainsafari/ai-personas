@@ -1,17 +1,20 @@
-import { NextResponse } from "next/server"
-import { writeFile } from "fs/promises"
-import { join } from "path"
-import path from "path"
-import fs from "fs"
-import { v4 as uuidv4 } from "uuid"
-import { PDFLoader } from "langchain/document_loaders/fs/pdf"
-import { DocxLoader } from "langchain/document_loaders/fs/docx"
-import { TextLoader } from "langchain/document_loaders/fs/text"
-import { CSVLoader } from "langchain/document_loaders/fs/csv"
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
-import { OpenAIEmbeddings } from "langchain/embeddings/openai"
-import { Pinecone } from "@pinecone-database/pinecone"
+import { NextResponse } from "next/server";
+import { writeFile } from "fs/promises";
+import { join } from "path";
+import path from "path";
+import fs from "fs";
+import { v4 as uuidv4 } from "uuid";
 
+// Updated LangChain imports (modular packages)
+import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
+import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
+import { TextLoader } from "@langchain/community/document_loaders/fs/text";
+import { CSVLoader } from "@langchain/community/document_loaders/fs/csv";
+import { RecursiveCharacterTextSplitter } from "@langchain/community/text_splitter";
+import { OpenAIEmbeddings } from "@langchain/openai";
+
+// Pinecone
+import { Pinecone } from "@pinecone-database/pinecone";
 // Initialize Pinecone
 const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY!,
