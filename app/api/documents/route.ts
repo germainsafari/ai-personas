@@ -23,6 +23,7 @@ import { Pinecone } from "@pinecone-database/pinecone";
 // Init Pinecone
 const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY!,
+  environment: process.env.PINECONE_ENVIRONMENT!, // ✅ required
 });
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
