@@ -5,18 +5,19 @@ import path from "path";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 
-// Document loaders
+// Loaders from community package
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
 import { CSVLoader } from "@langchain/community/document_loaders/fs/csv";
-import { TextLoader } from "langchain/document_loaders/fs/text"; // fallback to main package
 
-// Splitter & Embeddings
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"; // fallback to main package
+// Loaders/splitters from monorepo (not modularized yet)
+import { TextLoader } from "langchain/document_loaders/fs/text";
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+
+// Embeddings & vector store
 import { OpenAIEmbeddings } from "@langchain/openai";
-
-// Pinecone
 import { Pinecone } from "@pinecone-database/pinecone";
+
 
 // Initialize Pinecone client
 const pinecone = new Pinecone({
