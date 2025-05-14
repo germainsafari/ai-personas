@@ -5,51 +5,43 @@ import path from "path";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 
-// Loaders from community package
+// Correct loader imports
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
 import { CSVLoader } from "@langchain/community/document_loaders/fs/csv";
 
-// Loaders/splitters from monorepo (not modularized yet)
+// These two stay in core `langchain`
 import { TextLoader } from "langchain/document_loaders/fs/text";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 
-// Embeddings & vector store
+// Embeddings
 import { OpenAIEmbeddings } from "@langchain/openai";
+
+// Pinecone client
 import { Pinecone } from "@pinecone-database/pinecone";
 
-
-// Initialize Pinecone client
+// Init Pinecone
 const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY!,
 });
 
-// Constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 const PROCESSED_DIR = path.join(process.cwd(), "public", "processed");
 
 export async function POST(request: Request) {
   try {
-    // Ensure upload/processed directories exist
     [UPLOAD_DIR, PROCESSED_DIR].forEach((dir) => {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     });
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
+    if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    if (file.size > MAX_FILE_SIZE)
       return NextResponse.json({ error: "File too large" }, { status: 400 });
-    }
 
-    // Save file
     const id = uuidv4();
     const ext = file.name.split(".").pop() || "bin";
     const fileName = `${id}.${ext}`;
@@ -57,48 +49,42 @@ export async function POST(request: Request) {
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filePath, fileBuffer);
 
-    // Load document content
     let content = "";
     let metadata = {};
-    try {
-      switch (file.type) {
-        case "application/pdf": {
-          const loader = new PDFLoader(filePath);
-          const docs = await loader.load();
-          content = docs.map((d) => d.pageContent).join("\n");
-          metadata = docs[0]?.metadata || {};
-          break;
-        }
-        case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
-          const loader = new DocxLoader(filePath);
-          const docs = await loader.load();
-          content = docs.map((d) => d.pageContent).join("\n");
-          metadata = docs[0]?.metadata || {};
-          break;
-        }
-        case "text/plain": {
-          const loader = new TextLoader(filePath);
-          const docs = await loader.load();
-          content = docs.map((d) => d.pageContent).join("\n");
-          metadata = docs[0]?.metadata || {};
-          break;
-        }
-        case "text/csv": {
-          const loader = new CSVLoader(filePath);
-          const docs = await loader.load();
-          content = docs.map((d) => d.pageContent).join("\n");
-          metadata = docs[0]?.metadata || {};
-          break;
-        }
-        default:
-          return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
+
+    switch (file.type) {
+      case "application/pdf": {
+        const loader = new PDFLoader(filePath);
+        const docs = await loader.load();
+        content = docs.map((d) => d.pageContent).join("\n");
+        metadata = docs[0]?.metadata || {};
+        break;
       }
-    } catch (error) {
-      console.error("Document processing error:", error);
-      return NextResponse.json({ error: "Failed to process document" }, { status: 500 });
+      case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+        const loader = new DocxLoader(filePath);
+        const docs = await loader.load();
+        content = docs.map((d) => d.pageContent).join("\n");
+        metadata = docs[0]?.metadata || {};
+        break;
+      }
+      case "text/plain": {
+        const loader = new TextLoader(filePath);
+        const docs = await loader.load();
+        content = docs.map((d) => d.pageContent).join("\n");
+        metadata = docs[0]?.metadata || {};
+        break;
+      }
+      case "text/csv": {
+        const loader = new CSVLoader(filePath);
+        const docs = await loader.load();
+        content = docs.map((d) => d.pageContent).join("\n");
+        metadata = docs[0]?.metadata || {};
+        break;
+      }
+      default:
+        return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
     }
 
-    // Split content into chunks
     const splitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
       chunkOverlap: 200,
@@ -114,7 +100,6 @@ export async function POST(request: Request) {
       },
     ]);
 
-    // Embedding & Pinecone
     const embeddings = new OpenAIEmbeddings({
       openAIApiKey: process.env.OPENAI_API_KEY,
     });
@@ -141,7 +126,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Save metadata
     const processedData = {
       id,
       name: file.name,
