@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { useState, useRef } from "react"
+import { useRef, useState } from "react"
 import { Upload } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "@/components/ui/use-toast"
@@ -16,27 +15,39 @@ export type UploadedFile = {
   content?: string
   ocrApplied?: boolean
   thumbnail?: string
+  metadata?: Record<string, any>
 }
 
 interface FileUploaderProps {
   onFileUpload: (file: UploadedFile) => void
   isUploading: boolean
-  setIsUploading: (isUploading: boolean) => void
+  setIsUploading: (uploading: boolean) => void
 }
 
-export function FileUploader({ onFileUpload, isUploading, setIsUploading }: FileUploaderProps) {
-  const [dragActive, setDragActive] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
+export function FileUploader({
+  onFileUpload,
+  isUploading,
+  setIsUploading,
+}: FileUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [dragActive, setDragActive] = useState(false)
+
+  const supportedTypes = [
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/plain",
+    "text/csv",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+  ]
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
-    }
+    setDragActive(e.type === "dragenter" || e.type === "dragover")
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -56,8 +67,6 @@ export function FileUploader({ onFileUpload, isUploading, setIsUploading }: File
   }
 
   const handleFiles = async (files: FileList) => {
-    if (isUploading) return
-
     const file = files[0]
 
     if (file.size > 10 * 1024 * 1024) {
@@ -69,28 +78,17 @@ export function FileUploader({ onFileUpload, isUploading, setIsUploading }: File
       return
     }
 
-    const supportedTypes = [
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "text/plain",
-      "text/csv",
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-    ]
-
     if (!supportedTypes.includes(file.type)) {
       toast({
         title: "Unsupported file type",
-        description: "Please upload PDF, DOCX, TXT, CSV, JPG, PNG, GIF, or WEBP files",
+        description: "Only PDF, DOCX, TXT, CSV, JPG, PNG, GIF, and WEBP allowed",
         variant: "destructive",
       })
       return
     }
 
     setIsUploading(true)
-    setUploadProgress(0)
+    setUploadProgress(10)
 
     try {
       const formData = new FormData()
@@ -108,11 +106,24 @@ export function FileUploader({ onFileUpload, isUploading, setIsUploading }: File
       }
 
       const data = await response.json()
-      onFileUpload(data)
+      setUploadProgress(100)
+
+      console.log("Backend metadata:", data.metadata)
+
+      onFileUpload({
+        id: data.id,
+        name: data.name,
+        type: data.type,
+        size: data.size,
+        url: "", // Placeholder, set if using file preview
+        content: data.content,
+        ocrApplied: !!data.content,
+        metadata: data.metadata,
+      })
 
       toast({
-        title: "File uploaded",
-        description: `${file.name} has been uploaded successfully`,
+        title: "Upload successful",
+        description: `Title: ${data.metadata?.title || "N/A"}, Size: ${Math.round(data.size / 1024)} KB`,
       })
     } catch (error: any) {
       console.error("Upload error:", error)
@@ -127,23 +138,19 @@ export function FileUploader({ onFileUpload, isUploading, setIsUploading }: File
     }
   }
 
-  const handleButtonClick = () => {
-    inputRef.current?.click()
-  }
-
   return (
     <div className="w-full">
       <div
         className={cn(
           "relative flex flex-col items-center justify-center w-full p-4 border-2 border-dashed rounded-lg transition-colors",
           dragActive ? "border-primary bg-primary/5" : "border-border",
-          isUploading ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-accent/50",
+          isUploading ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-accent/50"
         )}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
-        onClick={handleButtonClick}
+        onClick={() => inputRef.current?.click()}
       >
         <input
           ref={inputRef}
@@ -156,8 +163,12 @@ export function FileUploader({ onFileUpload, isUploading, setIsUploading }: File
 
         <div className="flex flex-col items-center justify-center py-2">
           <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
-          <p className="mb-1 text-sm font-medium">{isUploading ? "Uploading..." : "Drag & drop or click to upload"}</p>
-          <p className="text-xs text-muted-foreground">PDF, DOCX, TXT, CSV, JPG, PNG, GIF, WEBP (max 10MB)</p>
+          <p className="mb-1 text-sm font-medium">
+            {isUploading ? "Uploading..." : "Drag & drop or click to upload"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            PDF, DOCX, TXT, CSV, JPG, PNG, GIF, WEBP (max 10MB)
+          </p>
         </div>
 
         {isUploading && (
