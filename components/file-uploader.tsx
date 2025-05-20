@@ -69,10 +69,10 @@ export function FileUploader({
   const handleFiles = async (files: FileList) => {
     const file = files[0]
 
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > 4 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Maximum file size is 10MB",
+        description: "Maximum file size is 4MB on this deployment.",
         variant: "destructive",
       })
       return
@@ -100,8 +100,21 @@ export function FileUploader({
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
+        let errorText = await response.text()
+        let message = "An error occurred during upload"
+        if (response.status === 413 || errorText.includes("413")) {
+          message = "File too large for server. Please upload a smaller file."
+        } else if (response.status === 504 || errorText.includes("timeout") || errorText.includes("terminated")) {
+          message = "The server took too long to process your file. Please try a smaller file or try again later."
+        } else if (errorText.includes("Failed to process document")) {
+          message = "The backend failed to process your file. Please check the file format or try again later."
+        }
         console.error("Upload failed:", errorText)
+        toast({
+          title: "Upload failed",
+          description: message,
+          variant: "destructive",
+        })
         throw new Error(errorText || `Upload failed: ${response.status}`)
       }
 
@@ -126,10 +139,16 @@ export function FileUploader({
         description: `Title: ${data.metadata?.title || "N/A"}, Size: ${Math.round(data.size / 1024)} KB`,
       })
     } catch (error: any) {
+      let message = "An error occurred during upload"
+      if (error.message?.includes("413")) {
+        message = "File too large for server. Please upload a smaller file."
+      } else if (error.message?.includes("terminated") || error.message?.includes("timeout")) {
+        message = "The server took too long to process your file. Please try a smaller file or try again later."
+      }
       console.error("Upload error:", error)
       toast({
         title: "Upload failed",
-        description: error.message || "An error occurred during upload",
+        description: message,
         variant: "destructive",
       })
     } finally {
@@ -167,7 +186,7 @@ export function FileUploader({
             {isUploading ? "Uploading..." : "Drag & drop or click to upload"}
           </p>
           <p className="text-xs text-muted-foreground">
-            PDF, DOCX, TXT, CSV, JPG, PNG, GIF, WEBP (max 10MB)
+            PDF, DOCX, TXT, CSV, JPG, PNG, GIF, WEBP (max 4MB)
           </p>
         </div>
 
