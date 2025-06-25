@@ -69,10 +69,10 @@ export function FileUploader({
   const handleFiles = async (files: FileList) => {
     const file = files[0]
 
-    if (file.size > 4 * 1024 * 1024) {
+    if (file.size > 20 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Maximum file size is 4MB on this deployment.",
+        description: "Maximum file size is 20MB on this deployment.",
         variant: "destructive",
       })
       return

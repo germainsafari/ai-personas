@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { writeFile, readFileSync, readdirSync } from "fs/promises";
+import { writeFile } from "fs/promises";
 import { join } from "path";
 import path from "path";
 import fs from "fs";
@@ -26,7 +26,7 @@ const pinecone = new Pinecone({
   environment: process.env.PINECONE_ENVIRONMENT!, // ✅ required
 });
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 const PROCESSED_DIR = path.join(process.cwd(), "public", "processed");
 
@@ -109,22 +109,20 @@ export async function POST(request: Request) {
 
     for (const [i, chunk] of chunks.entries()) {
       const embedding = await embeddings.embedQuery(chunk.pageContent);
-      await index.upsert({
-        vectors: [
-          {
-            id: `${id}-${i}`,
-            values: embedding,
-            metadata: {
-              text: chunk.pageContent,
-              documentId: id,
-              fileName: file.name,
-              fileType: file.type,
-              url: `/uploads/${fileName}`,
-              ...chunk.metadata,
-            },
+      await index.upsert([
+        {
+          id: `${id}-${i}`,
+          values: embedding,
+          metadata: {
+            text: chunk.pageContent,
+            documentId: id,
+            fileName: file.name,
+            fileType: file.type,
+            url: `/uploads/${fileName}`,
+            ...chunk.metadata,
           },
-        ],
-      });
+        },
+      ]);
     }
 
     const processedData = {
@@ -153,21 +151,23 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const files = fs.readdirSync(PROCESSED_DIR);
-    const documents = files
-      .filter((f) => f.endsWith(".json"))
-      .map((f) => {
-        const data = JSON.parse(readFileSync(join(PROCESSED_DIR, f), "utf-8"));
-        return {
-          id: data.id,
-          name: data.name,
-          type: data.type,
-          size: data.size,
-          url: data.url,
-          processedAt: data.processedAt,
-          chunks: data.chunks,
-        };
-      });
+    const files = await fs.promises.readdir(PROCESSED_DIR);
+    const documents = await Promise.all(
+      files
+        .filter((f) => f.endsWith(".json"))
+        .map(async (f) => {
+          const data = JSON.parse(await fs.promises.readFile(join(PROCESSED_DIR, f), "utf-8"));
+          return {
+            id: data.id,
+            name: data.name,
+            type: data.type,
+            size: data.size,
+            url: data.url,
+            processedAt: data.processedAt,
+            chunks: data.chunks,
+          };
+        })
+    );
 
     return NextResponse.json({ documents });
   } catch (error: any) {
